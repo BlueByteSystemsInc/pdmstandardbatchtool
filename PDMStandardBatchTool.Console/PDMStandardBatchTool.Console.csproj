@@ -75,7 +75,7 @@
     </Reference>
     <Reference Include="SolidWorks.Interop.swconst, Version=27.0.0.5030, Culture=neutral, PublicKeyToken=19f43e188e4269d8, processorArchitecture=MSIL">
       <HintPath>..\packages\BlueByte.SOLIDWORKS.Interops.2019.0.0\lib\SolidWorks.Interop.swconst.dll</HintPath>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="SolidWorks.Interop.swdocumentmgr, Version=27.0.0.5030, Culture=neutral, PublicKeyToken=e52dfa2d3a1e978a, processorArchitecture=MSIL">
       <HintPath>..\packages\BlueByte.SOLIDWORKS.DocumentManager.Interop.2019.0.0\lib\SolidWorks.Interop.swdocumentmgr.dll</HintPath>
@@ -87,6 +87,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Interactivity, Version=4.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Prism.Wpf.6.3.0\lib\net45\System.Windows.Interactivity.dll</HintPath>
     </Reference>
@@ -96,6 +97,9 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationProvider" />
+    <Reference Include="UIAutomationTypes" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EntryPoint.cs" />
