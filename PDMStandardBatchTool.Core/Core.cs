@@ -1,8 +1,7 @@
-﻿
-
-using SolidWorks.Interop.sldworks;
+﻿using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using System;
+using System.IO;
 using System.Threading;
 using System.Windows.Automation;
 using System.Windows.Forms;
@@ -17,10 +16,11 @@ namespace PDMStandardBatchTool.Core
 
         public static ConisioSW2Lib.IConisioSWAddIn addinObject { get; private set; }
 
-        public static bool ProcessFile(string filename, string checkInComment)
+        public static bool ProcessFile(string filename, string checkInComment, ICallback callback = null)
         {
             var ret = false;
 
+            #region event handlers
             var checkoutDialogOpened = new AutomationEventHandler((object sender, AutomationEventArgs e) => {
                 var window = sender as AutomationElement;
 
@@ -144,10 +144,14 @@ namespace PDMStandardBatchTool.Core
 
                 Automation.RemoveAllEventHandlers();
             });
-             
+            #endregion
 
+            if (Application == null)
+                throw new Exception("Application propertyi is not set.");
 
-                // add ui automation event handler 
+            if (callback != null)
+                callback.Message = $"Attaching event handlers...";
+
                 var frame = Application.Frame() as Frame;
                 var windowHandle = new IntPtr(frame.GetHWndx64());
                 var sldworksElement = AutomationElement.FromHandle(windowHandle);
@@ -156,7 +160,7 @@ namespace PDMStandardBatchTool.Core
                 Automation.AddAutomationEventHandler(WindowPattern.WindowOpenedEvent, sldworksElement, TreeScope.Children, checkoutDialogOpened);
 
                 var docType = swDocumentTypes_e.swDocPART;
-                var extension = System.IO.Path.GetExtension(fileName).ToLower();
+                var extension = System.IO.Path.GetExtension(filename).ToLower();
                 if (extension.Contains("sldprt"))
                     docType = swDocumentTypes_e.swDocPART;
                 else if (extension.Contains("sldasm"))
@@ -164,19 +168,76 @@ namespace PDMStandardBatchTool.Core
                 else if (extension.Contains("slddrw"))
                     docType = swDocumentTypes_e.swDocDRAWING;
 
-                var modelDoc = swApp.OpenDoc(fileName, (int)docType) as ModelDoc2;
+
+                string name = System.IO.Path.GetFileName(filename);
+
+                if (callback != null)
+                    callback.Message = $"Opening {name}...";
+
+                var modelDoc = Application.OpenDoc(filename, (int)docType) as ModelDoc2;
 
 
-                //  this is where we would execute a vba macro 
-                modelDoc.Save();
-                Automation.AddAutomationEventHandler(WindowPattern.WindowOpenedEvent, sldworksElement, TreeScope.Children, checkInDialogOpened);
-                // check in document 
-                addinObject.Unlock();
+                if (modelDoc == null)
+                {
+                    Application.CloseAllDocuments(true);
+                    if (callback != null)
+                        callback.Message = $"Failed to open {name}.";
+                    Automation.RemoveAllEventHandlers();
+                    return ret;
+                }
+                else
+                {
+                    if (callback != null)
+                        callback.Message = $"Opened {name}.";
+                }
+                // execute macro
 
-                // wait until document is readonly
+                if (callback != null)
+                    callback.Message = $"Attempting to execute macro...";
+
+                int errorMacro = 0;
+            
+
+                var macroRet = Application.RunMacro2(MacroParameters.FilePathName, MacroParameters.ModuleName, MacroParameters.ProcedureName, (int)swRunMacroOption_e.swRunMacroDefault, out errorMacro);
+
+                if (callback != null)
+                    callback.Message = $"Macro return [{name}] = {macroRet}";
+
+                // if macro does not work not then undo lock
+                if (macroRet)
+                {
+                    int errors = 0;
+                    int warnings = 0;
+                    var retSave = modelDoc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent + (int)swSaveAsOptions_e.swSaveAsOptions_SaveReferenced, ref errors, ref warnings);
+
+                    if (callback != null)
+                        callback.Message = $"Save return [{name}] = {retSave}";
+                    if (retSave)
+                    {
+                        Automation.AddAutomationEventHandler(WindowPattern.WindowOpenedEvent, sldworksElement, TreeScope.Children, checkInDialogOpened);
+                        // check in document 
+                        addinObject.Unlock();
+
+                    }
+                    else
+                    {
+                        if (callback != null)
+                            callback.Message = $"Undoing lock {name}.";
+                        addinObject.UndoLock();
+                    }
+
+
+                }
+                else
+                {
+                    if (callback != null)
+                        callback.Message = $"Undoing lock {name}.";
+                    addinObject.UndoLock();
+                }
 
                 // close document
-                swApp.CloseAllDocuments(true);
+                Application.CloseAllDocuments(true);
+
                 System.Console.ReadLine();
             }
           
@@ -206,6 +267,12 @@ namespace PDMStandardBatchTool.Core
             return ret;
         }
 
+    }
+
+
+    public interface ICallback
+    {
+        string Message { get; set; }
     }
 
     public struct MacroParameters
